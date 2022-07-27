@@ -329,3 +329,159 @@ XeonBotInc.public = true
         let buffer = Buffer.isBuffer(path) ? path : /^data:.*?\/.*?;base64,/i.test(path) ? Buffer.from(path.split`,`[1], 'base64') : /^https?:\/\//.test(path) ? await (await getBuffer(path)) : fs.existsSync(path) ? fs.readFileSync(path) : Buffer.alloc(0)
         return await XeonBotInc.sendMessage(jid, { video: buffer, caption: caption, gifPlayback: gif, ...options }, { quoted })
     }
+
+    /**
+     * 
+     * @param {*} jid 
+     * @param {*} path 
+     * @param {*} quoted 
+     * @param {*} mime 
+     * @param {*} options 
+     * @returns 
+     */
+    XeonBotInc.sendAudio = async (jid, path, quoted = '', ptt = false, options) => {
+        let buffer = Buffer.isBuffer(path) ? path : /^data:.*?\/.*?;base64,/i.test(path) ? Buffer.from(path.split`,`[1], 'base64') : /^https?:\/\//.test(path) ? await (await getBuffer(path)) : fs.existsSync(path) ? fs.readFileSync(path) : Buffer.alloc(0)
+        return await XeonBotInc.sendMessage(jid, { audio: buffer, ptt: ptt, ...options }, { quoted })
+    }
+
+    /**
+     * 
+     * @param {*} jid 
+     * @param {*} text 
+     * @param {*} quoted 
+     * @param {*} options 
+     * @returns 
+     */
+    XeonBotInc.sendTextWithMentions = async (jid, text, quoted, options = {}) => XeonBotInc.sendMessage(jid, { text: text, contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net') }, ...options }, { quoted })
+
+    /**
+     * 
+     * @param {*} jid 
+     * @param {*} path 
+     * @param {*} quoted 
+     * @param {*} options 
+     * @returns 
+     */
+    XeonBotInc.sendImageAsSticker = async (jid, path, quoted, options = {}) => {
+        let buff = Buffer.isBuffer(path) ? path : /^data:.*?\/.*?;base64,/i.test(path) ? Buffer.from(path.split`,`[1], 'base64') : /^https?:\/\//.test(path) ? await (await getBuffer(path)) : fs.existsSync(path) ? fs.readFileSync(path) : Buffer.alloc(0)
+        let buffer
+        if (options && (options.packname || options.author)) {
+            buffer = await writeExifImg(buff, options)
+        } else {
+            buffer = await imageToWebp(buff)
+        }
+
+        await XeonBotInc.sendMessage(jid, { sticker: { url: buffer }, ...options }, { quoted })
+        return buffer
+    }
+
+    /**
+     * 
+     * @param {*} jid 
+     * @param {*} path 
+     * @param {*} quoted 
+     * @param {*} options 
+     * @returns 
+     */
+    XeonBotInc.sendVideoAsSticker = async (jid, path, quoted, options = {}) => {
+        let buff = Buffer.isBuffer(path) ? path : /^data:.*?\/.*?;base64,/i.test(path) ? Buffer.from(path.split`,`[1], 'base64') : /^https?:\/\//.test(path) ? await (await getBuffer(path)) : fs.existsSync(path) ? fs.readFileSync(path) : Buffer.alloc(0)
+        let buffer
+        if (options && (options.packname || options.author)) {
+            buffer = await writeExifVid(buff, options)
+        } else {
+            buffer = await videoToWebp(buff)
+        }
+
+        await XeonBotInc.sendMessage(jid, { sticker: { url: buffer }, ...options }, { quoted })
+        return buffer
+    }
+	
+    /**
+     * 
+     * @param {*} message 
+     * @param {*} filename 
+     * @param {*} attachExtension 
+     * @returns 
+     */
+    XeonBotInc.downloadAndSaveMediaMessage = async (message, filename, attachExtension = true) => {
+        let quoted = message.msg ? message.msg : message
+        let mime = (message.msg || message).mimetype || ''
+        let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0]
+        const stream = await downloadContentFromMessage(quoted, messageType)
+        let buffer = Buffer.from([])
+        for await(const chunk of stream) {
+            buffer = Buffer.concat([buffer, chunk])
+        }
+	let type = await FileType.fromBuffer(buffer)
+        trueFileName = attachExtension ? (filename + '.' + type.ext) : filename
+        // save to file
+        await fs.writeFileSync(trueFileName, buffer)
+        return trueFileName
+    }
+
+    XeonBotInc.downloadMediaMessage = async (message) => {
+        let mime = (message.msg || message).mimetype || ''
+        let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0]
+        const stream = await downloadContentFromMessage(message, messageType)
+        let buffer = Buffer.from([])
+        for await(const chunk of stream) {
+            buffer = Buffer.concat([buffer, chunk])
+	}
+        
+	return buffer
+     } 
+    
+    /**
+     * 
+     * @param {*} jid 
+     * @param {*} path 
+     * @param {*} filename
+     * @param {*} caption
+     * @param {*} quoted 
+     * @param {*} options 
+     * @returns 
+     */
+    XeonBotInc.sendMedia = async (jid, path, fileName = '', caption = '', quoted = '', options = {}) => {
+        let types = await XeonBotInc.getFile(path, true)
+           let { mime, ext, res, data, filename } = types
+           if (res && res.status !== 200 || file.length <= 65536) {
+               try { throw { json: JSON.parse(file.toString()) } }
+               catch (e) { if (e.json) throw e.json }
+           }
+       let type = '', mimetype = mime, pathFile = filename
+       if (options.asDocument) type = 'document'
+       if (options.asSticker || /webp/.test(mime)) {
+        let { writeExif } = require('./lib/exif')
+        let media = { mimetype: mime, data }
+        pathFile = await writeExif(media, { packname: options.packname ? options.packname : global.packname, author: options.author ? options.author : global.author, categories: options.categories ? options.categories : [] })
+        await fs.promises.unlink(filename)
+        type = 'sticker'
+        mimetype = 'image/webp'
+        }
+       else if (/image/.test(mime)) type = 'image'
+       else if (/video/.test(mime)) type = 'video'
+       else if (/audio/.test(mime)) type = 'audio'
+       else type = 'document'
+       await XeonBotInc.sendMessage(jid, { [type]: { url: pathFile }, caption, mimetype, fileName, ...options }, { quoted, ...options })
+       return fs.promises.unlink(pathFile)
+       }
+
+    /**
+     * 
+     * @param {*} jid 
+     * @param {*} message 
+     * @param {*} forceForward 
+     * @param {*} options 
+     * @returns 
+     */
+    XeonBotInc.copyNForward = async (jid, message, forceForward = false, options = {}) => {
+        let vtype
+		if (options.readViewOnce) {
+			message.message = message.message && message.message.ephemeralMessage && message.message.ephemeralMessage.message ? message.message.ephemeralMessage.message : (message.message || undefined)
+			vtype = Object.keys(message.message.viewOnceMessage.message)[0]
+			delete(message.message && message.message.ignore ? message.message.ignore : (message.message || undefined))
+			delete message.message.viewOnceMessage.message[vtype].viewOnce
+			message.message = {
+				...message.message.viewOnceMessage.message
+			}
+		}
