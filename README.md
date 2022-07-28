@@ -17,7 +17,7 @@ King ys official multi divic whatsapp bot
 
   <p align="center">
 
-<img src="Ys.png" alt="GIF" width="300" height="270"/>
+<img src="https://i.ibb.co/vwQxJR1/Ys.png" alt="GIF" width="300" height="270"/>
 
 </p>
 
