@@ -3,7 +3,7 @@
   "name": "King-YS-Wa-Bot",
   "description": "whatsapp md bot build with nodejs",
   "repository": "https://github.com/vihangayt0/VihangaBot-MD",
-  "logo": "https://ibb.co/998pdng",
+  "logo": "https://i.ibb.co/vwQxJR1/Ys.png",
   "keywords": ["nodejs", "bot", "whatsapp bot", "whatsapp automation", "multi device"],
   "buildpacks": [
     {
